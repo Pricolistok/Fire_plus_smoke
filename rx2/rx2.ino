@@ -8,17 +8,21 @@
 #include <SPI.h>
 #include "nRF24L01.h"
 #include "RF24.h"
-#include <Servo.h>
+#define CLK 2
+#define DIO 3
+#define CLK1 7
+#define DIO1 6
+#include "GyverTM1637.h"
+GyverTM1637 disp(CLK, DIO);
+GyverTM1637 disp1(CLK1, DIO1);
 
 RF24 radio(9, 10);  // "создать" модуль на пинах 9 и 10 Для Уно
 //RF24 radio(9,53); // для Меги
 
 byte recieved_data[3];  // массив принятых данных
 byte relay = 4;         // реле на 2 цифровом
-byte servo = 3;         // сервопривод на 3 цифровом
-byte mosfet = 5;        // мосфет на 5 цифровом (ТУТ ЕСТЬ ШИМ!!!)
 
-Servo myservo;
+
 
 byte address[][6] = {"1Node", "2Node", "3Node", "4Node", "5Node", "6Node"}; //возможные номера труб
 
@@ -26,10 +30,11 @@ void setup() {
   Serial.begin(9600);       // открываем порт для связи с ПК
 
   pinMode(relay, OUTPUT);   // настроить пин реле как выход
-  pinMode(mosfet, OUTPUT);  // настроить пин мосфета как выход
 
-  myservo.attach(servo);
-
+   disp.clear();
+  disp.brightness(7);
+     disp1.clear();
+  disp1.brightness(7);
   radio.begin(); //активировать модуль
   radio.setAutoAck(1);        // режим подтверждения приёма, 1 вкл 0 выкл
   radio.setRetries(0, 15);    // (время между попыткой достучаться, число попыток)
@@ -37,7 +42,7 @@ void setup() {
   radio.setPayloadSize(32);   // размер пакета, в байтах
 
   radio.openReadingPipe(1, address[0]);     // хотим слушать трубу 0
-  radio.setChannel(0x60);  // выбираем канал (в котором нет шумов!)
+  radio.setChannel(0x65);  // выбираем канал (в котором нет шумов!)
 
   radio.setPALevel (RF24_PA_MAX);   // уровень мощности передатчика. На выбор RF24_PA_MIN, RF24_PA_LOW, RF24_PA_HIGH, RF24_PA_MAX
   radio.setDataRate (RF24_250KBPS); // скорость обмена. На выбор RF24_2MBPS, RF24_1MBPS, RF24_250KBPS
@@ -50,20 +55,22 @@ void setup() {
 
 void loop() {
   byte pipeNo;
+  
   while ( radio.available(&pipeNo)) { // есть входящие данные
     // чиатем входящий сигнал
     radio.read(&recieved_data, sizeof(recieved_data));
-
+      Serial.print("   FLAME       ");
     // подать на реле сигнал с 0 места массива
     digitalWrite(relay, recieved_data[0]);
     Serial.print(recieved_data[0]);
 
-    // повернуть серво на угол 0..180
-    // значение получено с 1 элемента массива
-    myservo.write(recieved_data[1]);
+      Serial.print("   GAZ       ");
+    Serial.print(recieved_data[1]);
+    disp.displayInt(recieved_data[1]);
 
-    // подать на мосфет ШИМ сигнал
-    // в соответствии с принятыми данными со 2 места массива, диапазон 0...255
-    analogWrite(mosfet, recieved_data[2]);
+  Serial.print("   TEMP       ");
+    Serial.print(recieved_data[2]);
+    disp1.displayInt(recieved_data[2]);
+    delay(500);
   }
 }
